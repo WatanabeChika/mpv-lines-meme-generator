@@ -11,12 +11,14 @@ local utils = require "mp.utils"
 local options = {
     dir = "YOUR_PATH_HERE", -- Your path to save screenshots
     height = 0.15,  -- Height of the lines to keep (starting from the bottom)
+    lossless = false,  -- Use lossless screenshots
 }
 
 read_options(options, "line-shot")
 
 local timestamp = os.date("%Y%m%d_%H%M%S")
 local screenshot_dir = options.dir
+local screenshot_format = options.lossless and ".png" or ".jpg"
 local screenshot_count = 0
 local screenshots = {}
 
@@ -25,11 +27,11 @@ function take_screenshot()
     screenshot_count = screenshot_count + 1
 
     -- Take original shots
-    local screenshot_file = utils.join_path(screenshot_dir, "temp_screenshot_" .. screenshot_count .. ".png")
+    local screenshot_file = utils.join_path(screenshot_dir, "temp_screenshot_" .. screenshot_count .. screenshot_format)
     mp.commandv("screenshot-to-file", screenshot_file, "subtitles")
 
     -- Crop the shots (except the first one)
-    local processed_file = utils.join_path(screenshot_dir, string.format("line_shot_%03d.png", screenshot_count))
+    local processed_file = utils.join_path(screenshot_dir, string.format("line_shot_%03d" .. screenshot_format, screenshot_count))
     local crop_arg = ""
 
     if screenshot_count > 1 then
@@ -61,7 +63,7 @@ function stitch_images()
     end
 
     local command = {"ffmpeg", "-y"}
-    local output_file = utils.join_path(screenshot_dir, "stitched_screenshot_" .. timestamp .. ".png")
+    local output_file = utils.join_path(screenshot_dir, "stitched_screenshot_" .. timestamp .. screenshot_format)
     local filter_expr = "vstack=" .. #screenshots
 
     -- Add input files, filter, output filename, one by one
