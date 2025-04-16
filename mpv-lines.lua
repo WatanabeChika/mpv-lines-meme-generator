@@ -1,20 +1,21 @@
--- original by wanakachi
--- suitable for windows operating systems
+-- original by Wanakachi
+-- suitable for Windows operating systems
 
 -- create long graph of lines with mpv
 -- requires ffmpeg.
--- usage: "n" to screenshot (can be pressed repeatedly), "ctrl+n" to create.
+-- usage: "n" to screenshot (can be pressed repeatedly), "Ctrl+n" to create.
+--        "Alt+up/down/right/left" to adjust the top/bottom margin of the subtitles.
+--        "Alt+m" to toggle the mouse position ratio display.
 
 require("mp.options")
 local utils = require("mp.utils")
 
--- 在options中添加bottom_margin和loglevel选项
 local options = {
-	dir = "/home/djl/Pictures/mpv-long-shots/", -- your path to save screenshots
-	height = 0.15,                           -- height of the lines to keep (starting from the bottom)
-	bottom_margin = 0,                       -- 字幕下边界距离视频底部的距离
-	lossless = false,                        -- use lossless screenshots
-	ffmpeg_loglevel = "error",               -- ffmpeg日志级别: quiet, panic, fatal, error, warning, info, verbose, debug
+	dir = "C:/Users/26063/Pictures/screenshots",  -- your path to save screenshots
+	subtitle_top = 0.15,                          -- distance (ratio) from the top of the video to the top margin of subtitles
+	subtitle_bottom = 0,                          -- distance (ratio) from the bottom of the video to the bottom margin of subtitles
+	lossless = false,                             -- use lossless screenshots
+	ffmpeg_loglevel = "error",                    -- ffmpeg log level: quiet, panic, fatal, error, warning, info, verbose, debug
 }
 
 read_options(options, "line-shot")
@@ -25,8 +26,18 @@ local screenshot_format = options.lossless and ".png" or ".jpg"
 local screenshot_count = 0
 local screenshots = {}
 
+local mouse_pos_overlay = nil
+local showing_mouse_pos = false
+local mouse_timer = nil
+
 -- take and crop screenshots
 function take_screenshot()
+    -- Check if the directory exists
+    if not utils.file_info(screenshot_dir) then
+        mp.osd_message("Directory does not exist: " .. screenshot_dir)
+        return
+    end
+
 	screenshot_count = screenshot_count + 1
 
 	-- take original shots
@@ -39,14 +50,14 @@ function take_screenshot()
 	local crop_arg = ""
 
 	if screenshot_count > 1 then
-		-- 第2张及以后应用上下边界
-		local effective_height = options.height - options.bottom_margin
-		local start_y = (1 - options.height)
-		crop_arg = "crop=iw:ih*" .. effective_height .. ":0:ih*" .. start_y
+		-- apply top and bottom margins for the second and subsequent screenshots
+		local effective_subtitle_top = options.subtitle_top - options.subtitle_bottom
+		local start_y = (1 - options.subtitle_top)
+		crop_arg = "crop=iw:ih*" .. effective_subtitle_top .. ":0:ih*" .. start_y
 	else
-		-- 第1张只应用底部边距
-		local effective_height = 1 - options.bottom_margin -- 保留从顶部到bottom_margin的部分
-		crop_arg = "crop=iw:ih*" .. effective_height .. ":0:0" -- 从顶部开始裁剪
+		-- apply only the bottom margin for the first screenshot
+		local effective_subtitle_top = 1 - options.subtitle_bottom
+		crop_arg = "crop=iw:ih*" .. effective_subtitle_top .. ":0:0"
 	end
 
 	-- use ffmpeg to crop the shots (quietly)
@@ -55,10 +66,10 @@ function take_screenshot()
 
 	local result = utils.subprocess({ args = crop_command })
 	if result.status == 0 then
-		mp.osd_message("shot saved: " .. processed_file)
+		mp.osd_message("Shot saved: " .. processed_file)
 		table.insert(screenshots, processed_file)
 	else
-		mp.osd_message("cropping failed: " .. result.error)
+		mp.osd_message("Cropping failed: " .. result.error)
 	end
 
 	-- delete the original shots
@@ -68,7 +79,7 @@ end
 -- stitch the cropped screenshots together
 function stitch_images()
 	if #screenshots <= 1 then
-		mp.osd_message("no shots to stitch!")
+		mp.osd_message("No shots to stitch!")
 		return
 	end
 
@@ -89,9 +100,9 @@ function stitch_images()
 	local result = utils.subprocess({ args = command })
 
 	if result.status == 0 then
-		mp.osd_message("stitched shot saved: " .. output_file)
+		mp.osd_message("Stitched shot saved: " .. output_file)
 	else
-		mp.osd_message("stitching failed: " .. result.error)
+		mp.osd_message("Stitching failed: " .. result.error)
 		return
 	end
 
@@ -104,48 +115,13 @@ function stitch_images()
 	screenshot_count = 0
 end
 
--- bindings
-mp.add_key_binding("n", "take-screenshot", take_screenshot)
-mp.add_key_binding("ctrl+n", "stitch-images", stitch_images)
--- 动态调整参数功能 (添加在脚本末尾)
-
--- 调整参数函数
-function increase_height()
-	options.height = math.min(options.height + 0.01, 0.5)
-	mp.osd_message(string.format("字幕高度: %.2f", options.height))
-end
-
-function decrease_height()
-	options.height = math.max(options.height - 0.01, options.bottom_margin)
-	mp.osd_message(string.format("字幕高度: %.2f", options.height))
-end
-
-function increase_bottom_margin()
-	options.bottom_margin = math.min(options.bottom_margin + 0.01, options.height)
-	mp.osd_message(string.format("下边距: %.2f", options.bottom_margin))
-end
-
-function decrease_bottom_margin()
-	options.bottom_margin = math.max(options.bottom_margin - 0.01, 0)
-	mp.osd_message(string.format("下边距: %.2f", options.bottom_margin))
-end
-
--- 绑定快捷键
-mp.add_key_binding("Alt+up", "increase-height", increase_height)
-mp.add_key_binding("Alt+down", "decrease-height", decrease_height)
-mp.add_key_binding("Alt+right", "increase-bottom-margin", increase_bottom_margin)
-mp.add_key_binding("Alt+left", "decrease-bottom-margin", decrease_bottom_margin)
--- 鼠标位置比例显示功能
-local mouse_pos_overlay = nil
-local showing_mouse_pos = false
-local mouse_timer = nil
-
+-- mouse position ratio display functionality
 function show_mouse_position(x, y)
 	if not mouse_pos_overlay then
 		mouse_pos_overlay = mp.create_osd_overlay("ass-events")
 	end
 
-	-- 获取视频和窗口尺寸
+	-- get video and window dimensions
 	local osd_width, osd_height = mp.get_osd_size()
 	local video_width = mp.get_property_number("width", 0)
 	local video_height = mp.get_property_number("height", 0)
@@ -154,31 +130,30 @@ function show_mouse_position(x, y)
 		return
 	end
 
-	-- 计算视频在窗口中的尺寸和位置
+	-- calculate the size and position of the video in the window
 	local scale = math.min(osd_width / video_width, osd_height / video_height)
 	local scaled_width = video_width * scale
 	local scaled_height = video_height * scale
 	local video_x = (osd_width - scaled_width) / 2
 	local video_y = (osd_height - scaled_height) / 2
 
-	-- 检查鼠标是否在视频区域内
+	-- check if the mouse is within the video area
 	if x < video_x or x > video_x + scaled_width or y < video_y or y > video_y + scaled_height then
-		-- 鼠标在视频外，显示提示信息
-		mouse_pos_overlay.data = "{\\an7\\pos(10,10)\\fs20\\bord1}鼠标不在视频区域内"
+		mouse_pos_overlay.data = "{\\an7\\pos(10,10)\\fs20\\bord1}Mouse is outside the video area"
 		mouse_pos_overlay:update()
 		return
 	end
 
-	-- 将鼠标坐标转换为视频内相对坐标
+	-- convert mouse coordinates to relative coordinates within the video
 	local rel_x = (x - video_x) / scaled_width
 	local rel_y = (y - video_y) / scaled_height
 
-	-- 计算距离底部的比例
+	-- calculate the ratio from the bottom
 	local bottom_ratio = 1 - rel_y
 
-	-- 仅在左上角显示比例信息
+	-- display the ratio information in the top-left corner only
 	local text_style = "{\\an7\\pos(10,10)\\fs20\\bord1}"
-	local text = string.format("%s距底部: %.2f (位置: %.0f, %.0f)", text_style, bottom_ratio, x, y)
+	local text = string.format("%sDistance from bottom: %.2f (Position: %.0f, %.0f)", text_style, bottom_ratio, x, y)
 	mouse_pos_overlay.data = text
 	mouse_pos_overlay:update()
 end
@@ -191,7 +166,7 @@ function toggle_mouse_pos()
 			local mx, my = mp.get_mouse_pos()
 			show_mouse_position(mx, my)
 		end)
-		mp.osd_message("鼠标位置比例显示已启用")
+		mp.osd_message("Mouse position ratio display enabled")
 	else
 		if mouse_pos_overlay then
 			mouse_pos_overlay:remove()
@@ -199,9 +174,38 @@ function toggle_mouse_pos()
 		if mouse_timer then
 			mouse_timer:kill()
 		end
-		mp.osd_message("鼠标位置比例显示已禁用")
+		mp.osd_message("Mouse position ratio display disabled")
 	end
 end
 
--- 绑定快捷键
+-- parameter adjustment functions
+function increase_subtitle_top()
+	options.subtitle_top = math.min(options.subtitle_top + 0.01, 0.5)
+	mp.osd_message(string.format("Top margin: %.2f", options.subtitle_top))
+end
+
+function decrease_subtitle_top()
+	options.subtitle_top = math.max(options.subtitle_top - 0.01, options.subtitle_bottom)
+	mp.osd_message(string.format("Top margin: %.2f", options.subtitle_top))
+end
+
+function increase_subtitle_bottom()
+	options.subtitle_bottom = math.min(options.subtitle_bottom + 0.01, options.subtitle_top)
+	mp.osd_message(string.format("Bottom margin: %.2f", options.subtitle_bottom))
+end
+
+function decrease_subtitle_bottom()
+	options.subtitle_bottom = math.max(options.subtitle_bottom - 0.01, 0)
+	mp.osd_message(string.format("Bottom margin: %.2f", options.subtitle_bottom))
+end
+
+-- bindings
+mp.add_key_binding("n", "take-screenshot", take_screenshot)
+mp.add_key_binding("Ctrl+n", "stitch-images", stitch_images)
+
 mp.add_key_binding("Alt+m", "toggle-mouse-position", toggle_mouse_pos)
+
+mp.add_key_binding("Alt+up", "increase-subtitle-top", increase_subtitle_top, {repeatable = true})
+mp.add_key_binding("Alt+down", "decrease-subtitle-top", decrease_subtitle_top, {repeatable = true})
+mp.add_key_binding("Alt+right", "increase-subtitle-bottom", increase_subtitle_bottom, {repeatable = true})
+mp.add_key_binding("Alt+left", "decrease-subtitle-bottom", decrease_subtitle_bottom, {repeatable = true})
