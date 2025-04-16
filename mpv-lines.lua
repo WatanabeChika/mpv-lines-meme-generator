@@ -11,11 +11,11 @@ require("mp.options")
 local utils = require("mp.utils")
 
 local options = {
-	dir = "C:/Users/26063/Pictures/screenshots",  -- your path to save screenshots
-	subtitle_top = 0.15,                          -- distance (ratio) from the top of the video to the top margin of subtitles
-	subtitle_bottom = 0,                          -- distance (ratio) from the bottom of the video to the bottom margin of subtitles
-	lossless = false,                             -- use lossless screenshots
-	ffmpeg_loglevel = "error",                    -- ffmpeg log level: quiet, panic, fatal, error, warning, info, verbose, debug
+	dir = "YOUR_PATH_HERE",         -- your path to save screenshots
+	subtitle_top = 0.15,            -- distance (ratio) from the top of the video to the top margin of subtitles
+	subtitle_bottom = 0,            -- distance (ratio) from the bottom of the video to the bottom margin of subtitles
+	lossless = false,               -- use lossless screenshots
+	ffmpeg_loglevel = "error",      -- ffmpeg log level: quiet, panic, fatal, error, warning, info, verbose, debug
 }
 
 read_options(options, "line-shot")
