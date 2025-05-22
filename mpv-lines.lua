@@ -20,7 +20,6 @@ local options = {
 
 read_options(options, "line-shot")
 
-local timestamp = os.date("%Y%m%d_%H%M%S")
 local screenshot_dir = options.dir
 local screenshot_format = options.lossless and ".png" or ".jpg"
 local screenshot_count = 0
@@ -84,7 +83,7 @@ function stitch_images()
 	end
 
 	local command = { "ffmpeg", "-loglevel", options.ffmpeg_loglevel, "-y" }
-	local output_file = utils.join_path(screenshot_dir, "stitched_screenshot_" .. timestamp .. screenshot_format)
+	local output_file = utils.join_path(screenshot_dir, "stitched_screenshot_" .. os.date("%Y%m%d_%H%M%S") .. screenshot_format)
 	local filter_expr = "vstack=" .. #screenshots
 
 	-- add input files, filter, output filename, one by one
