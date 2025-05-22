@@ -20,7 +20,7 @@ local options = {
 
 read_options(options, "line-shot")
 
-local timestamp = os.date("%y%m%d_%h%m%s")
+local timestamp = os.date("%Y%m%d_%H%M%S")
 local screenshot_dir = options.dir
 local screenshot_format = options.lossless and ".png" or ".jpg"
 local screenshot_count = 0
